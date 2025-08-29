@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>AI Prompt Hub</title>
+<meta name="color-scheme" content="light dark">
+<meta name="description" content="AIプロンプト集。検索・タグ・お気に入り・ダーク/ライト・1ファイル完結。" />
+<style>
+  :root{
+    --brand-hue: 220;           /* ← 色を変えたい時はこのHUEだけ調整 */
+    --brand: hsl(var(--brand-hue) 90% 55%);
+    --brand-weak: hsl(var(--brand-hue) 90% 96%);
+    --fg: hsl(222, 20%, 12%);
+    --fg-soft: hsl(222, 12%, 36%);
+    --bg: #ffffff;
+    --card: #ffffff;
+    --border: hsl(220, 12%, 90%);
+    --muted: hsl(220, 12%, 96%);
+    --shadow: 0 10px 30px rgba(0,0,0,.08);
+  }
+  [data-theme="dark"]{
+    --fg: hsl(210 20% 95%);
+    --fg-soft: hsl(210 10% 75%);
+    --bg: hsl(220 16% 12%);
+    --card: hsl(220 16% 16%);
+    --border: hsl(220 10% 26%);
+    --muted: hsl(220 10% 18%);
+    --shadow: 0 10px 30px rgba(0,0,0,.35);
+  }
+  *{ box-sizing:border-box }
+  html,body{ height:100% }
+  body{
+    margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic UI", "Yu Gothic", Meiryo, sans-serif;
+    background: var(--bg); color: var(--fg); line-height: 1.6;
+  }
+  header{
+    position:sticky; top:0; z-index:10;
+    backdrop-filter: blur(8px);
+    background: color-mix(in oklab, var(--bg) 88%, transparent);
+    border-bottom: 1px solid var(--border);
+  }
+  .wrap{ max-width:1200px; margin-inline:auto; padding: 16px; }
+  .topbar{ display:flex; gap:14px; align-items:center; justify-content:space-between; flex-wrap:wrap }
+  .brand{ display:flex; gap:10px; align-items:center }
+  .logo{ width:36px; height:36px; border-radius:10px; background:var(--brand-weak); display:grid; place-items:center; box-shadow: var(--shadow); }
+  .logo svg{ width:22px; height:22px; fill: var(--brand); }
+  .title{ font-size: clamp(18px, 3vw, 22px); font-weight:700 }
+  .controls{ display:flex; gap:10px; align-items:center; flex-wrap:wrap }
+  .search{ position:relative; min-width:260px; flex: 1 1 320px; }
+  .search input{ width:100%; padding:12px 40px 12px 38px; border-radius:12px; border:1px solid var(--border); background:var(--card); color:var(--fg); outline:none }
+  .search svg{ position:absolute; left:10px; top:50%; transform:translateY(-50%); width:18px; height:18px; opacity:.6 }
+  .btn{ display:inline-flex; align-items:center; gap:8px; padding:10px 12px; border-radius:12px; background:var(--card); border:1px solid var(--border); color:var(--fg); cursor:pointer; user-select:none }
+  .btn:hover{ border-color: color-mix(in oklab, var(--brand), var(--border)); }
+  .btn .icon{ width:18px; height:18px; opacity:.75 }
+  .chip{ display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:var(--muted); border:1px solid var(--border); font-size:12px; color: var(--fg); }
+/* ライトモード時：タグパネル内のチップはコントラスト強めに */
+[data-theme="light"] #tagsPanel .chip{ background: hsl(220 20% 95%); border-color: hsl(220 12% 80%); color:#1a1f2b; font-weight:600; }
+/* アクティブはより見やすく */
+#tagsPanel .chip.active{ outline:2px solid var(--brand); background: color-mix(in oklab, var(--brand-weak), white 40%); color:#0f172a; }
+  .chip.active{ outline:2px solid var(--brand); background:color-mix(in oklab, var(--brand-weak), var(--bg)); }
+  .panel{ margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center }
+  .hint{ color: var(--fg-soft); font-size:13px }
+
+  main{ padding-block: 18px 100px }
+  .grid{ display:grid; grid-template-columns: repeat( auto-fill, minmax(280px, 1fr) ); gap:14px }
+  .card{ background:var(--card); border:1px solid var(--border); border-radius:16px; box-shadow: var(--shadow); overflow:hidden; display:flex; flex-direction:column }
+  .card header{ position:relative; background: unset; border:none; }
+  .card-head{ padding:14px 14px 8px 14px; display:flex; flex-direction:column; gap:6px }
+  .card h3{ margin:0; font-size:16px }
+  .meta{ display:flex; gap:6px; flex-wrap:wrap; align-items:center }
+  .tag{ font-size:11px; padding:4px 8px; border:1px solid var(--border); border-radius:999px; background: var(--muted); color: var(--fg); }
+/* ライトモードでカード内タグの文字が薄く見えないように */
+[data-theme="light"] .tag{ background: hsl(220 20% 96%); color:#111827; border-color:hsl(220 12% 82%); }
+  .actions{ margin-left:auto; display:flex; gap:6px }
+  .star{ cursor:pointer; border:none; background:none; padding:4px; border-radius:8px }
+  .star svg{ width:18px; height:18px; fill: none; stroke: var(--fg-soft); stroke-width:1.6 }
+  .star.active svg{ fill: var(--brand); stroke: var(--brand) }
+  details{ border-top:1px dashed var(--border) }
+  summary{ list-style:none; cursor:pointer; padding:10px 14px; display:flex; align-items:center; gap:8px; color:var(--fg-soft) }
+  summary::-webkit-details-marker{ display:none }
+  .count{ margin: 6px 0 10px; color: var(--fg-soft); font-size:13px }
+
+  .toolbar{ display:flex; gap:8px; flex-wrap:wrap }
+  .toolbar .toggle{ display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border-radius:12px; border:1px solid var(--border); background:var(--card) }
+  .toggle input{ accent-color: var(--brand) }
+
+  .toast{ position: fixed; left:50%; bottom:24px; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding:10px 14px; border-radius:999px; box-shadow: var(--shadow); opacity:0; pointer-events:none; transition:opacity .2s, translate .2s; }
+  .toast.show{ opacity:1 }
+
+  .footer{ margin-top: 30px; color: var(--fg-soft); font-size:12px; text-align:center }
+
+  .help{ margin-top: 10px; border:1px dashed var(--border); border-radius:12px; padding:10px 12px; background: var(--muted); }
+  .help h4{ margin: 2px 0 8px; font-size:14px }
+  .help code{ background: var(--card); border:1px solid var(--border); padding:2px 6px; border-radius:6px }
+
+  /* ビューアダイアログ */
+  dialog{ border:none; padding:0; background: var(--card); color:var(--fg); border:1px solid var(--border); border-radius:16px; box-shadow: var(--shadow); width:min(920px, 92vw) }
+  .dlg-hd{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border) }
+  .dlg-bd{ padding:12px; display:grid; gap:12px; }
+  .dlg-ft{ display:flex; gap:8px; justify-content:flex-end; padding:12px 14px; border-top:1px solid var(--border) }
+  .viewer-title{ font-weight:700; font-size:16px }
+  .viewer-meta{ display:flex; gap:6px; flex-wrap:wrap; align-items:center }
+  .viewer-text{ width:100%; min-height:260px; border:1px solid var(--border); background: var(--muted); color: var(--fg); border-radius:12px; padding:12px; font-family: inherit; font-size:14px; line-height:1.7 }
+  .vars{ display:grid; gap:8px; grid-template-columns: 1fr 1fr; }
+  .vars label{ font-size:12px; color:var(--fg-soft) }
+  .vars input, .vars textarea{ width:100%; padding:8px 10px; border-radius:10px; border:1px solid var(--border); background:var(--card); color:var(--fg); }
+  .vars textarea{ min-height: 96px; resize: vertical; line-height: 1.6; white-space: pre-wrap; font-family: inherit; }
+
+  @media (max-width:740px){ .vars{ grid-template-columns: 1fr; } }
+  /* ===== ヘッダ配置を整理：ブランド左／操作右／検索は下段フル幅 ===== */
+  .topbar{ display:grid; grid-template-columns: 1fr auto; grid-template-areas: "brand controls" "search search"; align-items:center; gap:12px }
+  .brand{ grid-area: brand }
+  /* controlsのラッパは潰して中身（search, toolbar）を親グリッドに参加させる */
+  .controls{ display: contents }
+  .search{ grid-area: search }
+  .toolbar{ grid-area: controls; justify-self: end }
+  @media (max-width:720px){
+    .topbar{ grid-template-columns: 1fr; grid-template-areas: "brand" "controls" "search" }
+    .toolbar{ justify-self: start }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true" title="AI Prompt Hub">
+        <!-- robot icon -->
+        <svg viewBox="0 0 24 24" role="img" aria-label="logo"><path d="M12 2a1 1 0 0 0-1 1v1H8a3 3 0 0 0-3 3v3H4a2 2 0 0 0-2 2v4a5 5 0 0 0 5 5h10a5 5 0 0 0 5-5v-4a2 2 0 0 0-2-2h-1V7a3 3 0 0 0-3-3h-3V3a1 1 0 0 0-1-1Zm-5 7V7a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v2H7Zm-3 3h16a0 0 0 0 1 0 0v3a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3v-3a0 0 0 0 1 0 0ZM8.5 13.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Zm7 0a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3Z"/></svg>
+      </div>
+      <div class="title">AI Prompt Hub</div>
+    </div>
+    <div class="controls">
+      <div class="search" role="search">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 2a8 8 0 1 1 0 16 8 8 0 0 1 0-16Zm11 19-5.3-5.3" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+        <input id="searchInput" type="search" placeholder="検索（タイトル・本文・タグ）" autocomplete="off" />
+      </div><div class="toolbar">
+        <label class="toggle" title="お気に入りのみ表示">
+          <input type="checkbox" id="favOnly"> お気に入り
+        </label>
+        <label class="toggle" title="ダーク/ライト">
+          <select id="themeSel" aria-label="テーマ">
+            <option value="auto">自動</option>
+            <option value="light">ライト</option>
+            <option value="dark">ダーク</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  </div>
+  <div class="wrap panel" id="tagsPanel">
+    <span class="hint">タグで絞り込み：</span>
+    <div id="tagChips" class="chips" aria-label="タグ"></div>
+    <button class="btn" id="clearTagsBtn" title="選択したタグをすべて解除">選択解除</button>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="count" id="resultCount"></div>
+  <div class="grid" id="grid"></div>
+
+  <div class="help" aria-live="polite">
+    <h4>使い方</h4>
+    <ul>
+      <li>検索欄から <strong>タイトル/本文/タグ</strong> を横断検索。タグをクリックして絞り込みも可能。</li>
+      <li>⭐ を押すと <strong>お気に入り</strong> に登録（端末ごとに保存）。「お気に入りのみ」で切替。</li>
+      <li>変数（例：<code>{{product}}</code>）つきは、カードの「詳細を開く」→ ポップアップで入力→置換→コピーできます。</li>
+    </ul>
+  </div>
+
+  <div class="footer">
+    最終更新: <span id="updated"></span> ／ このページは 1 ファイル（HTML）だけで動作します。
+  </div>
+</main>
+
+<!-- ▼ プロンプトビューワ ダイアログ（動的に中身を差し替え） -->
+<dialog id="viewDlg" aria-label="プロンプトビューア">
+  <div class="dlg-hd">
+    <div class="viewer-title" id="vTitle"></div>
+    <button class="btn" id="vClose">閉じる</button>
+  </div>
+  <div class="dlg-bd">
+    <div class="viewer-meta" id="vMeta"></div>
+    <textarea id="vText" class="viewer-text" readonly></textarea>
+    <div class="vars" id="vVars"></div>
+  </div>
+  <div class="dlg-ft">
+    <button class="btn" id="vClear">クリア</button>
+    <button class="btn" id="vEditToggle">編集</button>
+    <button class="btn" id="vCopy"><strong>コピー</strong></button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+/***** ▼▼▼ データ定義（このHTML内に直接記載） ▼▼▼ *****/
+const PROMPTS = [
+  {
+    id: "vba-mini-generic",
+    title: "ちょいツールVBAを実装",
+    role: "ExcelVBA",
+    tags: ["VBA","小規模ツール","実装"],
+    prompt: "以下の仕様のExcelVBAマクロを作ってください。標準モジュール1つ想定で、Option Explicitと基本的なエラー処理のみ。動作手順も簡潔に添えて。\n---\n【仕様】\n{{re}}\n\n※可能なら依存参照なし（標準機能のみ）で。"
+  },
+  {
+    id: "mail-polish-internal",
+    title: "社内向けメール文面を整える",
+    role: "ビジネス文書",
+    tags: ["メール","社内","校正"],
+    prompt: "以下のメール文面を、社内向けに読みやすく自然な表現へ校正してください。敬語は過度に堅苦しくせず、簡潔さと分かりやすさを重視してください。\n---\n本文:\n{{text}}\n"
+  },
+  {
+    id: "mail-polish-external",
+    title: "社外向けメール文面を丁寧に校正",
+    role: "ビジネス文書",
+    tags: ["メール","社外","校正"],
+    prompt: "以下のメール文面を、お客様向けに自然で丁寧な表現へ校正してください。敬語は正確に保ちつつ、過剰なへりくだりは避け、簡潔さを意識してください。必要であれば箇条書きも検討してください。\n---\n本文:\n{{text}}\n"
+  },
+  {
+    id: "prompt-improve",
+    title: "不十分なプロンプトを改善",
+    role: "プロンプト改善",
+    tags: ["プロンプト","改善","校正"],
+    prompt: "以下に与えるプロンプトを分析し、AIからより良い回答を得られるように改善してください。曖昧さをなくし、目的・条件・出力形式を明確にしてください。改善後のプロンプトは実用的な形で提示してください。\n---\n元のプロンプト:\n{{text}}\n"
+  },
+  {
+    id: "prompt-improve-with-tips",
+    title: "プロンプト改善＋改善ポイントの説明",
+    role: "プロンプト改善",
+    tags: ["プロンプト","改善","解説"],
+    prompt: "以下に与えるプロンプトを、AIから的確な回答を得られるように改善してください。その際、どの点を改善したのか（例:目的を明確化、制約条件追加、出力形式指定など）を箇条書きで説明し、改善後のプロンプトを提示してください。\n---\n元のプロンプト:\n{{text}}\n"
+  },
+  {
+    id: "mail-polish",
+    title: "メール文面を丁寧に校正",
+    role: "ビジネス文書",
+    tags: ["校正","メール","日本語"],
+    prompt: "以下のメール文面を、敬語と簡潔さを保ちつつ、社外向けに自然で丁寧な表現へ校正してください。過剰なへりくだりは避け、箇条書きも検討してください。\n---\n{{text}}"
+  },
+  {
+    id: "reply-compose",
+    title: "顧客への返信文案を生成",
+    role: "カスタマー対応",
+    tags: ["メール","返信","丁寧"],
+    prompt: "次の相手メールに対し、事実関係の確認→結論→対応方針→期日の順で簡潔な返信文案を日本語で作成してください。件名案も3つ。\n相手メール: \n---\n{{incoming}}"
+  },
+  {
+    id: "pg-optimize",
+    title: "PostgreSQL クエリ改善",
+    role: "DB/SQL",
+    tags: ["PostgreSQL","パフォーマンス","SQL"],
+    prompt: "以下の PostgreSQL バージョンとテーブル構成、クエリを読み、ボトルネック分析と改善案（インデックス/SQL書き換え/実行計画の観点）を提案してください。\n- バージョン: {{pg_version}}\n- スキーマ: {{schema}}\n- クエリ: {{sql}}\n出力は: 現状推測→改善案（効果/デメリット/前提）→検証手順→ロールバック案。"
+  },
+  {
+    id: "java-debug",
+    title: "Java 例外の原因切り分け",
+    role: "アプリ開発",
+    tags: ["Java","デバッグ","原因分析"],
+    prompt: "以下のスタックトレースと前提条件から原因候補を優先度順に列挙し、再現手順・追加で確認すべきログ/設定・暫定回避策・恒久対応案を提示してください。\n前提: {{context}}\nスタック: \n```\n{{stacktrace}}\n```"
+  },
+  {
+    id: "shell-script",
+    title: "シェルスクリプト自動生成",
+    role: "運用自動化",
+    tags: ["Shell","Linux","自動化"],
+    prompt: "要件に基づいて POSIX 準拠で安全なシェルスクリプトを作成してください。set -eu と失敗時のメッセージ、引数/ヘルプ、ログ出力、エラー処理、終了コード設計を含めること。要件: {{requirements}}"
+  },
+  {
+    id: "meeting-agenda",
+    title: "会議アジェンダ作成",
+    role: "ファシリテーション",
+    tags: ["会議","アジェンダ","進行"],
+    prompt: "目的/期待成果/意思決定事項/参加者/制約/資料/持ち帰りを満たす 60 分のアジェンダを作ってください。テーマ: {{topic}}。タイムボックスと役割分担も。"
+  },
+  {
+    id: "policy-summary",
+    title: "技術記事の要約と論点整理",
+    role: "リサーチ",
+    tags: ["要約","技術","論点"],
+    prompt: "次の文章を 200-300 字で要約し、利点/懸念/未解決点を箇条書きで整理。専門用語は簡潔に補足。\n---\n{{article}}"
+  },
+  {
+    id: "prompt-refine",
+    title: "プロンプト改善（ペアプロ）",
+    role: "Prompt Engineering",
+    tags: ["プロンプト","改善","テンプレ"],
+    prompt: "以下の不十分なプロンプトを、目的→前提→入出力形式→制約→評価基準→例の順で改善してください。\n元のプロンプト: {{raw_prompt}}"
+  }
+];
+
+/***** ▲▲▲ データ定義（このHTML内に直接記載） ▲▲▲ *****/
+
+const FAV_KEY = "ai-prompt-hub:favs";
+const THEME_KEY = "ai-prompt-hub:theme";
+
+const $ = (sel, el=document) => el.querySelector(sel);
+const $$ = (sel, el=document) => Array.from(el.querySelectorAll(sel));
+
+let prompts = structuredClone(PROMPTS); // ← ローカルストレージは使わない
+let activeTags = new Set();
+let favOnly = false;
+let favs = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || "[]"));
+let theme = localStorage.getItem(THEME_KEY) || "auto";
+
+init();
+
+function init(){
+  applyTheme(theme);
+  renderTags();
+  renderGrid();
+  bindUI();
+  $('#updated').textContent = new Date().toLocaleString();
+  runTests(); // 簡易テストを起動時に実行
+}
+
+function bindUI(){
+  const search = $('#searchInput');
+  let timer; search.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(renderGrid, 100); });
+
+  $('#favOnly').addEventListener('change', (e)=>{ favOnly = e.target.checked; renderGrid(); });
+
+  $('#themeSel').value = theme; $('#themeSel').addEventListener('change', (e)=>{ theme = e.target.value; localStorage.setItem(THEME_KEY, theme); applyTheme(theme); });
+}
+
+
+function applyTheme(mode){
+  const root = document.documentElement;
+  if(mode === 'auto'){
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    root.setAttribute('data-theme', mq.matches ? 'dark' : 'light');
+  } else {
+    root.setAttribute('data-theme', mode);
+  }
+}
+
+function renderTags(){
+  const tags = new Map();
+  for(const p of prompts){ (p.tags||[]).forEach(t => tags.set(t, (tags.get(t)||0)+1)); }
+  const frag = document.createDocumentFragment();
+  for(const [tag,count] of Array.from(tags).sort((a,b)=>a[0].localeCompare(b[0], 'ja'))){
+    const chip = document.createElement('button');
+    chip.className = 'chip'; chip.type = 'button'; chip.dataset.tag = tag;
+    chip.innerHTML = `${tag} <span class="hint">${count}</span>`;
+    if(activeTags.has(tag)) chip.classList.add('active');
+    chip.addEventListener('click', ()=>{ if(activeTags.has(tag)) activeTags.delete(tag); else activeTags.add(tag); chip.classList.toggle('active'); renderGrid(); });
+    frag.appendChild(chip);
+  }
+  $('#tagChips').replaceChildren(frag);
+  // 一括解除ボタン
+  const clearBtn = $('#clearTagsBtn');
+  if(clearBtn){
+    clearBtn.onclick = ()=>{
+      if(activeTags.size===0){ toast('選択中のタグはありません'); return; }
+      activeTags.clear();
+      renderTags();
+      renderGrid();
+      toast('タグ選択をクリアしました');
+    };
+  }
+}
+
+function matchesFilter(p){
+  if(favOnly && !favs.has(p.id)) return false;
+  if(activeTags.size){ const set = new Set(p.tags||[]); for(const t of activeTags){ if(!set.has(t)) return false; } }
+  const q = $('#searchInput').value.trim().toLowerCase();
+  if(!q) return true;
+  const hay = [p.title, p.role, (p.tags||[]).join(' '), p.prompt].join('\n').toLowerCase();
+  return q.split(/\s+/).every(w => hay.includes(w));
+}
+
+function highlight(text, q){
+  if(!q) return text;
+  const re = new RegExp('('+q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')+')', 'ig');
+  return text.replace(re, '<mark>$1<\/mark>');
+}
+
+function renderGrid(){
+  const q = $('#searchInput').value.trim();
+  const list = prompts.filter(matchesFilter);
+  $('#resultCount').textContent = `${list.length} 件ヒット` + (activeTags.size? `（タグ: ${Array.from(activeTags).join(', ')}）`:'');
+
+  const frag = document.createDocumentFragment();
+  for(const p of list){
+    const card = document.createElement('article'); card.className='card'; card.id = p.id;
+    const head = document.createElement('div'); head.className='card-head';
+    head.innerHTML = `
+      <div style="display:flex; gap:8px; align-items:flex-start;">
+        <div style="flex:1 1 auto; min-width:0">
+          <h3 title="${escapeHtml(p.title)}">${highlight(escapeHtml(p.title), q)}</h3>
+          <div class="meta">
+            <span class="chip" title="ロール">${escapeHtml(p.role||'')}</span>
+            ${(p.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('')}
+          </div>
+        </div>
+        <div class="actions">
+          <button class="star ${favs.has(p.id)?'active':''}" title="お気に入り" aria-label="お気に入り">
+            <svg viewBox="0 0 24 24"><path d="M12 17.3l-6.18 3.64 1.64-7.03L2 9.24l7.19-.62L12 2l2.81 6.62 7.19.62-5.46 4.67 1.64 7.03z"/></svg>
+          </button>
+        </div>
+      </div>`;
+
+    const details = document.createElement('details');
+    details.innerHTML = `<summary>詳細を開く（ポップアップ表示）</summary>`;
+
+    card.append(head, details); frag.appendChild(card);
+
+    head.querySelector('.star').addEventListener('click', (e)=>{
+      e.currentTarget.classList.toggle('active');
+      const on = e.currentTarget.classList.contains('active');
+      if(on) favs.add(p.id); else favs.delete(p.id);
+      localStorage.setItem(FAV_KEY, JSON.stringify([...favs]));
+      if(favOnly && !on) card.remove();
+    });
+
+    // ポップアップで開く（detailsをトリガに使用）
+    const summary = details.querySelector('summary');
+    summary.addEventListener('click', (ev)=>{ ev.preventDefault(); openViewer(p); });
+  }
+  $('#grid').replaceChildren(frag);
+}
+
+/* ===== ビューア（ポップアップ） ===== */
+const vDlg = $('#viewDlg'); const vTitle = $('#vTitle'); const vMeta = $('#vMeta'); const vText = $('#vText'); const vVars = $('#vVars');
+$('#vClose').addEventListener('click', ()=> vDlg.close());
+$('#vCopy').addEventListener('click', ()=> { safeCopy(vText.value); });
+$('#vEditToggle').addEventListener('click', ()=>{
+  if(vText.readOnly){ vText.readOnly = false; vText.focus(); $('#vEditToggle').textContent = '読み取り専用'; }
+  else { vText.readOnly = true; $('#vEditToggle').textContent = '編集'; }
+});
+$('#vClear').addEventListener('click', ()=>{ clearVars(); vText.value = currentBasePrompt; });
+
+let currentBasePrompt = '';
+
+function openViewer(p){
+  currentBasePrompt = p.prompt; // 退避
+  vTitle.textContent = p.title;
+  vMeta.innerHTML = `<span class="chip">${escapeHtml(p.role||'')}</span>` + (p.tags||[]).map(t=>`<span class="tag">${escapeHtml(t)}</span>`).join('');
+  vText.value = p.prompt; vText.readOnly = true; $('#vEditToggle').textContent = '編集';
+  buildVarsUI(p);
+  autosizeAll();
+  if(typeof vDlg.showModal === 'function'){ vDlg.showModal(); } else { vDlg.setAttribute('open','open'); }
+}
+
+function buildVarsUI(p){
+  vVars.replaceChildren();
+  const names = Array.from(new Set((p.prompt.match(/\{\{\s*([\w.-]+)\s*\}\}/g) || [])
+    .map(m=>m.replace(/\{|\}/g,'').trim()) ));
+  if(!names.length){ vVars.style.display='none'; vVars.oninput = null; return; }
+  vVars.style.display='grid';
+  names.forEach(n=>{
+    const id = `var_${p.id}__${n}`;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<label for="${id}">${n}</label><textarea id="${id}" name="${n}" placeholder="${n}" rows="4"></textarea>`;
+    vVars.appendChild(wrap);
+  });
+  // 入力のたびに置換（継続的に反映）— 前回リスナーは上書きして多重登録を防止
+  vVars.oninput = onVarsInput;
+}
+
+function onVarsInput(){
+  const vars = {}; $$('.vars input, .vars textarea', vDlg).forEach(i=>vars[i.name]=i.value);
+  vText.value = substitute(currentBasePrompt, vars);
+}
+
+function clearVars(){
+  $$('.vars input, .vars textarea', vDlg).forEach(i=> i.value = '');
+  vText.value = currentBasePrompt;
+}
+
+// セキュアコピー（Clipboard API → execCommand → 最後は選択誘導）
+async function safeCopy(text){
+  // 1) Clipboard API（HTTPS & 許可がある場合）
+  try{
+    if(window.isSecureContext && navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      toast('コピーしました');
+      return 'clipboard';
+    }
+  }catch(e){ /* 権限ポリシー等で失敗したらフォールバック */ }
+
+  // 2) 古いブラウザや権限無し用のフォールバック
+  try{
+    const ta = Object.assign(document.createElement('textarea'), {
+      value: text
+    });
+    ta.setAttribute('readonly','');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    ta.style.pointerEvents = 'none';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand && document.execCommand('copy');
+    document.body.removeChild(ta);
+    if(ok){ toast('コピーしました'); return 'execCommand'; }
+  }catch(e){ /* noop */ }
+
+  // 3) 最後の手段：テキストを選択した状態にして手動コピーを案内
+  try{ vText.focus(); vText.select(); }catch(_){}
+  toast('コピー不可: テキストを選択しました。Ctrl/Cmd+C でコピーしてください');
+  return 'selected';
+}
+
+function substitute(str, map){
+  return str.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_,k)=> (map[k] ?? `{{${k}}}`));
+}
+
+function escapeHtml(s){
+  return (s||'').toString().replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;','\'':'&#39;'}[ch]));
+}
+
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._timer); toast._timer = setTimeout(()=>t.classList.remove('show'), 1600);
+}
+
+/***** ▼▼▼ 簡易テスト（コンソール） ▼▼▼ *****/
+// テキストエリアの高さを中身に合わせて自動調整
+function autosizeAll(){
+  $$('.vars textarea', vDlg).forEach(t=>{
+    t.style.height = 'auto';
+    t.style.height = (t.scrollHeight+2) + 'px';
+  });
+}
+
+function runTests(){
+  try{
+    console.group('%cAI Prompt Hub: self-tests','color:#06c');
+    // substitute の基本動作
+    console.assert(substitute('Hello {{name}}', {name:'Alice'}) === 'Hello Alice', 'substitute: simple');
+    console.assert(substitute('{{a}}-{{b}}', {a:'X'}) === 'X-{{b}}', 'substitute: missing keeps token');
+    // PROMPTS の存在
+    console.assert(Array.isArray(PROMPTS) && PROMPTS.length > 0, 'PROMPTS exists');
+    // safeCopy 分岐のシミュレーション（APIは触らない）
+    function safeCopySim(mode){
+      if(mode==='ok') return 'clipboard';
+      if(mode==='blocked') return 'execCommand';
+      if(mode==='none') return 'selected';
+    }
+    console.assert(safeCopySim('ok') === 'clipboard', 'safeCopySim ok');
+    console.assert(safeCopySim('blocked') === 'execCommand', 'safeCopySim blocked');
+    console.assert(safeCopySim('none') === 'selected', 'safeCopySim none');
+    console.groupEnd();
+  }catch(e){ console.error('Self-tests error', e); }
+}
+
+</script>
+</body>
+</html>
