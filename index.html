@@ -94,6 +94,12 @@
   .help h4{ margin: 2px 0 8px; font-size:14px }
   .help code{ background: var(--card); border:1px solid var(--border); padding:2px 6px; border-radius:6px }
 
+  .social-embed{ margin-top:32px; padding:20px; border-radius:16px; background:var(--card); border:1px solid var(--border); box-shadow:var(--shadow); display:grid; gap:12px; }
+  .social-embed h2{ margin:0; font-size:18px; }
+  .social-embed .hint{ font-size:13px; }
+  .social-embed .embed-frame{ border-radius:12px; overflow:hidden; border:1px solid var(--border); background:var(--muted); }
+  .social-embed iframe{ width:100%; height:clamp(360px, 70vh, 720px); border:0; }
+
   /* ビューアダイアログ */
   dialog{ border:none; padding:0; background: var(--card); color:var(--fg); border:1px solid var(--border); border-radius:16px; box-shadow: var(--shadow); width:min(920px, 92vw) }
   .dlg-hd{ display:flex; align-items:center; justify-content:space-between; gap:8px; padding:12px 14px; border-bottom:1px solid var(--border) }
@@ -168,6 +174,14 @@
       <li>変数（例：<code>{{product}}</code>）つきは、カードの「詳細を開く」→ ポップアップで入力→置換→コピーできます。</li>
     </ul>
   </div>
+
+  <section class="social-embed" aria-label="LinkedInフィード">
+    <h2>LinkedIn フィード</h2>
+    <p class="hint">AI Prompt Hub に関する最新の投稿を LinkedIn でチェックできます。</p>
+    <div class="embed-frame">
+      <iframe src="https://widget.tagembed.com/2197936?postId=1646022&amp;caption=1&amp;header=1" loading="lazy" title="AI Prompt Hub の LinkedIn フィード"></iframe>
+    </div>
+  </section>
 
   <div class="footer">
     最終更新: <span id="updated"></span> ／ このページは 1 ファイル（HTML）だけで動作します。
